@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: SessionStore?
     private var controller: Controller?
     private var notifier: Notifier?
+    private var pendingReopen: DispatchWorkItem?
+    private var lastNotificationClick = Date.distantPast
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSAppleEventManager.shared().setEventHandler(
@@ -47,7 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let controller = Controller(store: store)
         self.controller = controller
         controller.onSettingsShown = { [weak notifier] in notifier?.refreshAuthorization() }
-        notifier.attach(store: store) { [weak controller] id in
+        notifier.attach(store: store) { [weak self, weak controller] id in
+            self?.pendingReopen?.cancel()
+            self?.lastNotificationClick = Date()
             var link = URLComponents()
             link.scheme = "agentnudge"
             link.host = "open"
@@ -61,8 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Opening the app again while it runs shows Settings, since it has no window of its own.
+    /// Clicking a banner also arrives as a reopen, in either order with the click itself, so
+    /// Settings waits a moment and stays shut if a banner was clicked.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        controller?.showSettings()
+        pendingReopen?.cancel()
+        guard Date().timeIntervalSince(lastNotificationClick) > 1 else { return false }
+        let work = DispatchWorkItem { [weak self] in self?.controller?.showSettings() }
+        pendingReopen = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
         return false
     }
 

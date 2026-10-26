@@ -414,7 +414,7 @@ final class Controller: NSObject {
         case "new": open(.launcher, from: .indicator)
         case "open":
             // agentnudge://open?id=<session id>
-            if let id = query(url)["id"], let t = store.threads.first(where: { $0.id == id }) { store.open(t) }
+            if let id = query(url)["id"], let t = store.threads.first(where: { $0.id == id }) { openThread(t) }
 
         case "settings": showSettings()
         case "close": closeSheet()
